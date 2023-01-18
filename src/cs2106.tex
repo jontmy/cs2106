@@ -1,5 +1,12 @@
 \documentclass{article}
-% preamble v3.3
+% preamble v3.5
+
+% v3.4
+% - allowed tcolor theorem to break across columns and pages
+% - updated tcolorbox theorem style
+
+% v3.5
+% - added more colors via xcolor
 
 % Layout packages
 \usepackage{geometry}
@@ -38,6 +45,10 @@
 \usepackage[dvipsnames]{xcolor} % custom named colors
 \definecolor{body}{HTML}{555555}
 \definecolor{background}{HTML}{FFFFFF}
+\definecolor{m_purple}{HTML}{C39AC9}
+\definecolor{m_blue}{HTML}{9CD1BB}
+\definecolor{m_red}{HTML}{FF657A}
+\definecolor{m_green}{HTML}{BAD761}
 
 % Image & graphics packages
 % \usepackage{graphicx} - unused (no graphics)
@@ -107,15 +118,17 @@
 \usepackage{tcolorbox}
 \tcbuselibrary{theorems}
 \tcbuselibrary{skins}
+\tcbuselibrary{breakable}
 \newtcbtheorem[]{thm}{}{
+    breakable,
     theorem style=change apart,
     description delimiters none,
     enhanced,
-    frame hidden,interior hidden,
-    sharp corners,
+    frame hidden,
+    % interior hidden,
     boxrule=0pt,
     left=0.2cm,right=0.2cm,
-    toptitle=0.1cm+1pt,
+    toptitle=0.1cm+2pt,
     bottomtitle=-0.05cm+0.5em,
     colframe=body,colback=white,coltitle=white,
     title style=body,
