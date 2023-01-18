@@ -1,0 +1,107 @@
+\section{Process Abstraction}
+
+A \textbf{process} abstracts the information required to describe and manage the execution of a program.
+
+\subsection{Function Invocation}
+Function invocation presents control flow and data storage challenges:
+\begin{itemize}
+    \item jumping to function body, and resuming after the function returns
+    \item passing  parameters, and capturing a return value
+    \item allocating local variables
+\end{itemize}
+
+\begin{defn}{stack memory}
+    Stack memory is a region of memory separate from instruction and data memory that is used to store the following information for function invocations in \textbf{stack frames}:
+    \begin{enumerate}
+        \item return address (\code{PC}) of the caller
+        \item arguments for the parameters of the function
+        \item local variables used by the function
+        \item saved \textbf{stack pointer (\code{SP})}
+    \end{enumerate}
+
+    Optionally, the stack frame also includes:
+    \begin{enumerate}
+        \item[5.] \textbf{frame pointer \code{(FP)}}
+        \item[6.] saved registers
+    \end{enumerate}
+\end{defn}
+
+Stack frames are \textbf{pushed} onto the stack on invocation and \textbf{popped} on return.
+
+The \textbf{stack pointer \code{(SP)}} is a special register which contains the address of the first free location in the stack.
+
+Because \code{SP} varies depending on the number of local variables, some processors provide a \textbf{frame pointer \code{(FP)}} which points to a fixed location in a stack frame.
+
+When all general purpose registers are exhausted (\textbf{register spilling}), their values can be written to memory and restored at the end of the function call.
+
+\begin{defn}{function invocation --- setup}
+    If a function \code{f()} invokes \code{g()}, then \code{f()} is the \textbf{caller} and \code{g()} is the \textbf{callee}.
+
+    \begin{itemize}
+        \keyitem*{caller}{
+            \begin{enumerate}
+                \item passes arguments by setting registers directly and/or pushes arguments onto the stack
+                \item saves the return address on the stack
+            \end{enumerate}
+        }
+        \keyitem*{callee}{
+            \begin{enumerate}
+                \item saves the old stack pointer
+                \item allocates space for local variables
+                \item sets \code{SP} to the top of the stack
+            \end{enumerate}
+        }
+    \end{itemize}
+\end{defn}
+
+\begin{defn*}{function invocation --- teardown}
+    \begin{itemize}
+        \keyitem*{callee}{
+            \begin{enumerate}
+                \item pushes return value onto the stack (if any)
+                \item restores \code{SP} to the saved stack pointer
+                \item sets \code{PC} to the return address
+            \end{enumerate}
+        }
+        \keyitem*{caller}{
+            \begin{enumerate}
+                \item uses the return result (if any)
+                \item resumes execution
+            \end{enumerate}
+        }
+    \end{itemize}
+\end{defn*}
+
+Actual implementation of the function call convention depends on hardware, programming language, and compiler --- it is not universal.
+
+\subsection{Dynamically Allocated Memory}
+Some data may have a size only known at runtime, which precludes allocation in the data memory.
+
+Some data may have an unknown lifetime (i.e. no deallocation time guarantees) which precludes allocation in the stack memory.
+
+Hence, such dynamic data is allocated (e.g. by \code{malloc}) in the \textbf{heap memory}.
+
+\subsection{Process Model}
+\textbf{Process IDs} (PIDs) uniquely identify processes, each of which may exist in 5 different possible states:
+
+\begin{enumerate}
+    \keyitem*{new}{created, or under initialization}
+    \keyitem*{ready}{admitted, but waiting to run}
+    \keyitem*{running}{being executed by the CPU}
+    \keyitem*{blocked}{waiting until an event occurs}
+    \keyitem*{terminated}{finished execution, possibly requiring OS cleanup}
+\end{enumerate}
+
+\begin{defn}{process control blocks (PCBs)}
+    Every process' registers, memory, PID, and state is stored in a \textbf{process control block}.
+    
+    The kernel manages all PCBs in a \textbf{process table}.
+\end{defn}
+
+\begin{defn}{context switching}
+    Programs may be interrupted at any time, e.g. by the \textbf{scheduler},
+    and must operate independently of interrupts.
+    
+    A \textbf{context switch} saves the current execution context process in a PCB and loads the context of the next process to be executed.
+\end{defn}
+
