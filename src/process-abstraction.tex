@@ -105,3 +105,28 @@ Hence, such dynamic data is allocated (e.g. by \code{malloc}) in the \textbf{hea
     A \textbf{context switch} saves the current execution context process in a PCB and loads the context of the next process to be executed.
 \end{defn}
 
+\subsection{System Calls}
+\textbf{System calls}, or syscalls, are an API for programs (or user-friendly libraries) to call services in the kernel.
+
+Each syscall has a unique \textbf{system call number}, which is passed to the kernel via a designated register along with any arguments.
+
+The signature of a syscall in C is \code{long syscall(long number[, arg1, arg2, ...])}.
+
+These functions require a change from user mode to kernel mode when invoked, via a \textbf{TRAP instruction}.
+
+Syscalls are laid out in a table, which a \textbf{dispatcher} uses the system call number to find the correct \textbf{system call handler}.
+
+The system call handler executes the request, returns control to the library call, and switches back to user mode.
+
+\subsection{Exceptions and Interrupts}
+\textit{Machine level instructions} can cause \textbf{\textit{synchronous} exceptions} during program execution, e.g. division by zero or illegal memory access, which then passes control to an \textbf{exception handler}.
+
+\textit{External events} such as timers or hardware can cause \textbf{\textit{asynchronous} interrupts}, which then invokes an \textbf{interrupt handler}.
+
+As interrupts are asynchronous, they are only checked at specific times; never in the middle of an instruction: instructions are atomic/indivisible.
+
+\begin{defn}{exception/interrupt handlers}
+    These handlers save the register and CPU state, handle the necessary routine, and then restore the state and return to the interrupted program.
+
+    Program execution may resume as though the exception or interrupt never occurred.
+\end{defn}
