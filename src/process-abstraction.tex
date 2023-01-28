@@ -121,7 +121,9 @@ The system call handler executes the request, returns control to the library cal
 \subsection{Exceptions and Interrupts}
 \textit{Machine level instructions} can cause \textbf{\textit{synchronous} exceptions} during program execution, e.g. division by zero or illegal memory access, which then passes control to an \textbf{exception handler}.
 
-\textit{External events} such as timers or hardware can cause \textbf{\textit{asynchronous} interrupts}, which then invokes an \textbf{interrupt handler}.
+\textit{External events} such as timers or hardware can cause \textbf{\textit{asynchronous} interrupts}, which the operating then searches the \textbf{interrupt vector table} (IVT) to invokes the correct \textbf{interrupt handler}.
+
+The IVT is set up by the OS during boot, and exists in memory (hardware).
 
 As interrupts are asynchronous, they are only checked at specific times; never in the middle of an instruction: instructions are atomic/indivisible.
 
@@ -129,4 +131,44 @@ As interrupts are asynchronous, they are only checked at specific times; never i
     These handlers save the register and CPU state, handle the necessary routine, and then restore the state and return to the interrupted program.
 
     Program execution may resume as though the exception or interrupt never occurred.
+\end{defn}
+
+\section{Unix Processes}
+Every process has an integer process ID (PID).
+Child processes also remember their parent's PID.
+
+\code{init} is the ancestor of all other processes, created by the kernel at boot, with PID 1.
+
+Process status can be viewed with the \code{ps} command.
+
+\begin{defn}{\code{fork()}}
+    \code{fork()} creates a new \textbf{child process} which shares the same code and address space as the parent process.
+
+    Only the data memory (e.g. variables) of the child process is copied from the parent instead of shared.
+
+    Because memory copying is expensive, some systems use \textbf{copy-on-write}.
+
+    \code{fork()} returns \code{0} from the child process and the PID of the child process from the parent process.
+\end{defn}
+
+\begin{defn}{\code{execl()}}
+    \code{execl()} replaces the current process with a new process specified by the first argument, with optional \code{NULL}-terminated command-line arguments:
+
+    \begin{lstlisting}[frame=none,aboveskip=0.5em,belowskip=0em]
+int execl(char *path, char *arg, ..., NULL);
+    \end{lstlisting}
+\end{defn}
+
+\begin{defn}{wait()}
+    \code{wait()} blocks the parent process until at least one child process terminates, after which it clears the remainder of the child process' resources which are not removed by \code{exit()}.
+
+    \code{wait()} returns the PID of the terminated child process, while also accepting an optional \code{int} pointer for the child process' exit status:
+
+    \begin{lstlisting}[frame=none,aboveskip=0.5em,belowskip=0.5em]
+int wait(int *status);
+    \end{lstlisting}
+
+    If the parent process terminates before its child processes, the \textbf{orphan} child processes are adopted by \code{init} which will use \code{wait()} to cleanup.
+
+    If the child process terminates with \code{exit()} but its parent does not call \code{wait()}, then it becomes a \textbf{zombie process}.
 \end{defn}
