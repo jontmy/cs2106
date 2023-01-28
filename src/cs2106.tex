@@ -8,6 +8,9 @@
 % v3.5
 % - added more colors via xcolor
 
+% v3.6
+% - updated lstlisting style
+
 % Layout packages
 \usepackage{geometry}
 \geometry{a4paper, margin=0.4in, top=0.7in}
@@ -80,22 +83,19 @@
 \usepackage{listings}
 \newcommand{\code}[1]{\texttt{#1}}
 \lstset{
-    mathescape,
-    basicstyle=\small\fontfamily{lmvtt}\selectfont,
-    numbers=left,
-    numberstyle=\tiny,
-    frame=tb,
-    tabsize=4,
-    columns=fullflexible,
-    showstringspaces=false,
-    showtabs=false,
-    keepspaces,
-    commentstyle=\color{red},
-    keywordstyle=\color{blue}
+  language=C,
+  showstringspaces=false,
+  columns=flexible,
+  aboveskip=1.5em,
+  belowskip=0.5em,
+  frame=bt,
+  numbers=none,
+  basicstyle={\linespread{1.5}\small\ttfamily},
+  commentstyle={\color{body!60}\textit},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=4
 }
-\makeatletter % Remove vertical spacing around verbatim
-\preto{\@verbatim}{\topsep=-4pt \partopsep=0pt}
-\makeatother
 
 % Custom typesetting values
 \setlength{\abovedisplayskip}{0pt}
