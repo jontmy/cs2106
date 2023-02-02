@@ -1,0 +1,68 @@
+\section{Inter-process Communication}
+Two processes $P_1$ and $P_2$ need to communicate with each other. There are two ways to do this:
+\begin{enumerate*}
+    \keyitem{shared memory}{$P_1$ creates a shared memory region which $P_2$ can attach to.
+    $P_1$ and $P_2$ can then read and write to the shared memory region.}
+    \keyitem{message passing}{$P_1$ and $P_2$ exchange messages, where sending and receiving involve the OS via syscalls.}
+\end{enumerate*}
+
+The OS overhead for message passing is much higher than for shared memory, where the OS is only involved during the setup and teardown.
+
+Both options require some form of synchronization, to avoid \textbf{data races},
+where the processes read and write to the same memory location at the same time.
+
+Race conditions may result in incorrect behavior.
+
+\begin{defn}{direct \& indirect communication}
+    In a shared memory scheme, communication is always \textit{implicit} --- a bystander cannot easily detect that communication is taking place.
+
+    However, in message passing, communication is \textit{explicit} --- the sender must explicitly name the recipient, or specify a common message storage, usually a shared \textbf{mailbox} or \textbf{port}.
+
+    This means message passing may require the use of finite \textit{kernel memory} to buffer messages.
+\end{defn}
+
+\begin{defn}{synchronous \& asynchronous message passing}
+    The \code{receive()} operation is always assumed to be \textit{blocking} --- always waiting until a message arrives.
+    
+    Asynchronous message passing is \textit{non-blocking}, requiring the kernel to buffer messages. In the case of buffer overflow, \code{send()} may:
+    \begin{itemize}
+        \item block until the buffer has space, or,
+        \item return an error.
+    \end{itemize}
+
+    Synchronous message passing is \textit{blocking}, requiring the sender to wait until the receiver has received the message. No buffering is required.
+\end{defn}
+
+\subsection{Example: Unix IPC}
+
+\begin{defn*}{shared memory}
+    \begin{enumerate*}
+        \item The master program creates the shared memory space via \code{shmget()} and attaches it via \code{shmat()}.
+        \item The worker process only needs to attach to the shared memory space via \code{shmat()}.
+        \item Both processes use some space in the shared memory as control values for synchronization.
+        \item After work is complete, the worker process detaches from the shared memory via \code{shmdt()}.
+        \item The master process detaches from the shared memory via \code{shmdt()} and destroys the shared memory via \code{shmctl()}.
+    \end{enumerate*}
+\end{defn*}
+
+\begin{defn*}{message passing --- pipes}
+    Every process has \code{stdin}, \code{stdout}, and \code{stderr} pipes,
+    which can redirected with \code{<}, \code{>}, and \code{2>} respectively.
+    
+    Pipes in a \textbf{producer-consumer} relationship are connected with \code{|} at the command line.
+
+    Pipes are created with the \code{pipe(fd[2])} syscall in C, which returns two file descriptors, one for reading and one for writing.
+
+    The producer must \code{close()} the read end of the pipe before writing to it, and then \code{close()} the write end of the pipe after writing to it.
+
+    The consumer must \code{close()} the write end of the pipe before reading from it, and then \code{close()} the read end of the pipe after reading from it.
+\end{defn*}
+
+\begin{defn}{signals}
+    Signals are asynchronous notifications sent to a process by the OS or another process.
+
+    Processes can define their own signal handlers to handle signals,
+    such as \code{SIGSEGV}, using the \code{signal(SIGNAL, *fp)} syscall in C.
+
+    The \code{SIGKILL} and \code{SIGSTOP} signals are sent by the kernel to a process to terminate it, and cannot be caught, blocked, or ignored.
+\end{defn}
