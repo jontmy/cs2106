@@ -135,3 +135,26 @@ wait(semaphore);
 consume(X);
     \end{lstlisting}
 \end{defn}
+
+\subsection{Threads}
+A single \textbf{multithreaded process} can have multiple \textbf{threads} each with their own ID, registers, and stack.
+
+Threads share the memory context (only the text, data, heap), and OS context (PID, file descriptors, etc.), and as such are much lighter than processes, requiring much less resources (\textbf{economical and resource-sharing}).
+
+Multithreaded programs are also more \textbf{responsive} with UI decoupled from program logic and \textbf{scalable} to multiple CPU cores.
+
+\begin{defn}{user vs kernel threads}
+    Threads can be either \textbf{user threads} or \textbf{kernel threads}.
+    
+    The kernel is only aware of kernel threads, which it can schedule at the thread-level for better multi-core CPU utilization.
+
+    However, this comes with the overhead of kernel thread operations being system calls and less flexible than user threads which are implemented in libraries.
+\end{defn}
+
+The effect of system calls on threads is OS-dependent. In Unix,
+\begin{itemize*}
+    \keyitem*{fork()}{process is duplicated, but the child process will only have one thread}
+    \keyitem*{exit()}{terminates the entire process, and all threads are terminated}
+    \keyitem*{exec()}{only the calling thread is replaced by the new program image}
+\end{itemize*}
+
