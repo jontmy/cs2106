@@ -1,0 +1,137 @@
+\section{Synchronization}
+The execution of concurrent processes may be non-deterministic due to the order of execution of instructions on shared, modifiable resources.
+
+These \textbf{race conditions} or \textbf{data races} can lead to incorrect results due to unsynchronized access.
+
+The code segment which accesses shared resources is known as a \textbf{critical section},
+during which \textit{at most one} process can execute at a time.
+
+A proper critical section (CS) implementation must enforce the following:
+\begin{itemize*}
+    \keyitem*{mutual exclusion}{if a process is executing in the CS, all other processes must not enter the CS}
+    \keyitem*{progress}{if no process is in the CS, then one waiting process should be granted access}
+    \keyitem*{bounded wait}{after a process requests access to the CS, there must be an upper bound on the number of times other processes can enter the CS before it}
+    \keyitem*{independence}{a process not executing in the CS should never block other processes}
+\end{itemize*}
+
+Failure to enforce any of these properties can lead to the following:
+\begin{itemize*}
+    \keyitem*{incorrect program behaviour}{from lack of mutual exclusion}
+    \keyitem*{deadlocks}{when all processes are blocked due to a \textit{lack of progress}}
+    \keyitem*{livelocks}{when deadlock avoidance mechanisms fail to make progress}
+    \keyitem*{starvation}{when a process is blocked forever}
+\end{itemize*}
+
+\subsection{Peterson's Algorithm}
+\begin{defn}{Peterson's algorithm}
+    A mutual exclusion algorithm for 2 processes.
+
+    \begin{itemize}
+        \keyitem*{\code{flag[2]}}{a boolean array of length 2}
+        \keyitem*{\code{turn}}{an integer}
+    \end{itemize}
+
+    The \code{flag[]} array is used to indicate whether a process is requesting access to the CS.
+
+    The \code{turn} variable is used to indicate which process should be granted access to the CS.
+
+    \begin{lstlisting}
+/* PROCESS 0 */
+flag[0] = true;
+turn = 1;
+while (flag[1] && turn == 1); // busy wait
+/* critical section */
+flag[0] = false;
+
+/* PROCESS 1 */
+flag[1] = true;
+turn = 0;
+while (flag[0] && turn == 0); // busy wait
+/* critical section */
+flag[1] = false;
+    \end{lstlisting}
+\end{defn}
+
+Let the two processes be $P_0$ and $P_1$.
+
+Peterson's algorithm achieves mutual exclusion as no state can satisfy both \code{turn == 0} and \code{turn == 1} simultaneously, so neither processes can be in their critical sections at the same time.
+
+Note that while $P_0$ is in its CS, then \code{flag[0] == true}, and one of the following must hold:
+\begin{enumerate}
+    \item \code{flag[1] == false}: $P_1$ just left its CS,
+    \item \code{turn == 0}: $P_1$ is waiting to enter its CS, or,
+    \item $P_1$ has yet to (but is about to) set \code{turn = 0}
+\end{enumerate}
+
+Peterson's algorithm achieves progress as a process cannot immediately re-enter the CS if the other process has set its \code{flag} to \code{true}, which indicates that it wants to enter its CS.
+
+Peterson's algorithm achieves bounded wait as a process will never wait for more than turn to enter its CS.
+
+However, the disadvantages of Peterson's algorithm are its busy waiting (instead of blocking), its lack of general synchronization mechanism beyond mutual exclusion, and it being too low-level.
+
+\subsection{Test-and-Set}
+\begin{lstlisting}
+void enterCS(int* lock) {
+    // testAndSet(*ptr) is an assembly level
+    // instruction that is atomic:
+    // *ptr = 1;
+    // return old value of *ptr;
+    while (testAndSet(lock) == 1);
+}
+void exitCS(int* lock) {
+    *lock = 0;
+}
+// usage:
+int lock = 0;
+enterCS(&lock);
+/* critical section */
+exitCS(&lock);
+\end{lstlisting}
+
+Disadvantages of test-and-set are its busy waiting and lack of bounded-wait guarantee unless the scheduling is fair,
+leading to possible starvation.
+
+\subsection{Semaphores and Mutexes}
+A semaphore is a synchronization primitive which records the number of new processes that can safely access a shared resource,
+based on the number of processes that are currently accessing it.
+
+A \textbf{general/counting semaphore} allows any integer number of these processes, while a \textbf{binary semaphore}
+only allows either 0 or 1.
+
+\begin{lstlisting}
+int S = /* <initial value> */;
+void wait() { // aka. P(), Down()
+    // block while S <= 0
+    // decrement S
+}
+void signal() { // aka. V(), Up()
+    // increment S
+    // unblock a waiting process, if any
+    // this never blocks
+}
+\end{lstlisting}
+
+Therefore, for some initial value of \code{S}, the current value of \code{S} is the initial value, plus the number of \code{signal()} calls, minus the number of \code{wait()} calls.
+
+\begin{defn}{mutexes}
+    Mutexes are implemented using a binary semaphore, to enforce mutual exclusion, but can run into deadlocks if used incorrectly.
+    \begin{lstlisting}
+wait(mutex);
+/* critical section */
+signal(mutex);
+    \end{lstlisting}
+\end{defn}
+
+\begin{defn}{general synchronization}
+    Sempahores can also be used to enforce that a section of $P_1$ must be executed only after a section of $P_0$.
+
+    \begin{lstlisting}
+/* PROCESS 0 */
+produce(&X);
+signal(semaphore);
+
+/* PROCESS 1 */
+wait(semaphore);
+consume(X);
+    \end{lstlisting}
+\end{defn}

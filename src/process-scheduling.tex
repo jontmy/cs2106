@@ -1,0 +1,103 @@
+\section{Process Scheduling}
+To execute multiple processes concurrently, instructions from processes on the same CPU core are interleaved
+in a process known as \textbf{timeslicing}.
+
+The \textbf{scheduler} is the part of the OS which makes selects processes to run using \textbf{scheduling algorithms} to ensure \textit{fairness} (no starvation) and \textit{full utilization} of the CPU.
+
+There are 2 kinds of scheduling policies:
+\begin{enumerate}
+    \keyitem{preemptive}{processes are given a fixed time quota, and are interrupted if they do not block or terminate}
+    \keyitem{non-preemptive}{processes remain in the running state until they block or terminate \textit{voluntarily}}
+\end{enumerate}
+
+Processes go through phases of \textbf{CPU activity} and \textbf{IO activity} and their processing environment falls into 3 categories:
+\begin{enumerate}
+    \keyitem{batch processing}{no user interaction, need not be responsive}
+    \keyitem{interactive}{must have a low and consistent response time}
+    \keyitem{real-time processing}{deadlines must be met, and usually periodic}
+\end{enumerate}
+
+\subsection{Batch Processing Scheduling}
+Batch processing are evaluated on 4 metrics:
+\begin{itemize}
+    \keyitem*{turnaround time}{finish time - arrival time}
+    \keyitem*{throughput}{number of tasks finished per unit time}
+    \keyitem*{makespan}{total time taken to complete all tasks}
+    \keyitem*{CPU utilization}{percentage of time the CPU is working}
+\end{itemize}
+
+\begin{defn}{first come first serve (FCFS)}
+    Tasks are stoped in a FIFO queue, enqueued when they arrive and dequeued to run until they block or terminate.
+
+    Guarantees \textbf{no starvation} as the number of tasks is strictly decreasing.
+
+    Suffers from the \textbf{convoy effect} --- a CPU-bound process blocks queuing IO-bound processes, which leads to I/O idling, after unblocking, the IO-bound processes only require low CPU utilization.
+\end{defn}
+
+A simple reordering of processes in the queue can reduce average waiting time.
+
+\begin{defn}{shortest job first (SJF)}
+    Tasks are ordered in a priority queue with the task with the least CPU time estimated given the highest priority.
+
+    Estimation is typically done using an exponential moving average:
+
+    $\text{Predicted}_{n+1} = \alpha \; \text{Actual}_n + (1 - \alpha) \; \text{Predicted}_n$, \\
+    where $\alpha$ is the weight given based on past history.
+
+    Allows \textbf{preempting} a running task if a task with a shorter job arrives.
+
+    Guarantees smallest average waiting time.
+
+    Suffers from possible \textbf{starvation}.
+\end{defn}
+
+\begin{defn}{shortest remaining time (SRT)}
+    Similar to SJF, except priority is given to the task with the least remaining CPU time.
+
+    Allows \textbf{preempting} a running task if a task with a shorter remaining time arrives.
+
+    Suffers from possible \textbf{starvation}.
+\end{defn}
+
+\subsection{Interactive Scheduling}
+
+Interactive environments are evaluated by their \textbf{response time} and \textbf{predictability}, which is the variation in response time.
+
+A timer interrupt (which the OS ensures cannot be intercepted) is raised at fixed intervals and its handler invokes the scheduler.
+
+This divides CPU time into \textbf{time quantums}, which are multiples of the timer interrupt interval.
+
+\begin{defn}{round robin (RR)}
+    RR is the preemptive version of FCFS, where tasks in the FIFO queue are given a fixed time quantum to run,
+    after which they are preempted and placed at the end of the queue.
+
+    Smaller time quantums trade CPU utilization for better response time.
+\end{defn}
+
+\begin{defn}{lottery scheduling}
+    A weighted random process is chosen to run during each time quantum.
+    
+    The weight determines the probability of being chosen and ultimately the CPU time for that process.
+
+    Allows a process to distribute its CPU time across multiple child processes.
+\end{defn}
+
+\begin{defn}{priority scheduling}
+    Processes are assigned priority values, and the scheduler selects the process with the highest priority to run, either preemptive or non-preemptive.
+
+    Suffers from possible \textbf{starvation} and \textbf{priority inversion}, where a high priority process is blocked by a low priority process, e.g. due to a lock on a shared resource.
+    
+    Decreasing priority over time can mitigate starvation.
+
+    \textbf{Priority inheritance} can be used to mitigate priority inversion, where a lower priority process that is locking a shared resource is temporarily given the priority of the higher priority process that is blocked on it until it unlocks it.
+\end{defn}
+
+\begin{defn}{multi-level feedback queue (MLFQ)}
+    MLFQ is a priority scheduling algorithm with multiple queues, where processes are moved between queues based on their CPU usage.
+
+    New jobs get the highest priority, and are moved to lower priority queues if they fully utilize their time quantum.
+
+    If a job gives up or blocks before fully utilizing its time quantum, it retains its priority.
+
+    Processes with equal priority are scheduled using RR.
+\end{defn}
