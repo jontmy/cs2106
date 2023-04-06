@@ -1,0 +1,201 @@
+\part{File Systems}
+\textbf{Files} can be viewed as a collection of logical blocks.
+When the file size is not a multiple of the block size, the last block may have \textbf{internal fragmentation}.
+
+\textbf{File systems} keep track of these blocks, allow efficient access, and ensure effective utilization of disk space.
+
+
+\section{File System Implementation}
+Each partition on a disk contains 5 sectors:
+\begin{enumerate}
+    \keyitem*{OS boot block}{}
+    \keyitem*{partition details}{stores free space information}
+    \keyitem*{directory structure}{stores directory information}
+    \keyitem*{file info}{stores file allocation information}
+    \item{\textbf{file data}}
+\end{enumerate}
+
+\subsection{Allocation}
+In \textbf{contiguous allocation}, blocks are stored in a contiguous 1D array with metadata on the starting indices and length (in blocks) of each file.
+
+\textit{Advantage}: efficient sequential and random access as offsets into a file can be used.
+
+\textit{Disadvantage}: starting location of each file is assigned randomly, leading to external fragementation (empty blocks between files).
+
+In \textbf{linked list allocation}, each block in a file points to the next block in the file, and the addresses of the starting and ending blocks are recorded.
+
+\textit{Advantage}: no external fragmentation.
+
+\textit{Disadvantage}: pointer overhead per block, possible pointer corruption, sequential and random access is inefficient as the links must be traversed to reach the desired block.
+
+\begin{defn}{file allocation table (FAT)}
+    In a file allocation table, each block has an entry and is paired with the index of the next block in the file.
+
+    The FAT can be stored in RAM which makes random access efficient, but the FAT must be updated when a file is modified.
+
+    Furthermore, the FAT must record all disk blocks in a prtition, which on large disks can be memory space-inefficient.
+\end{defn}
+
+In \textbf{indexed allocation}, the index of every block in a file is also stored in a block, such that only the index block needs to be read to access the file.
+
+\textit{Advantage}: less memory overhead, only index block is kept in memory, no external fragmentation.
+
+\textit{Disadvantage}: index block overhead, maximum file size is limited by the number of blocks in the index block.
+
+Variations of the indexed allocation strategy include \textbf{linked indexes} and \textbf{multi-level indexing}.
+
+
+\subsection{Free Space Management}
+Using a \textbf{bitmap}, each block is marked as either free or allocated with \code{0} or \code{1} (implementation-dependent).
+
+\textit{Advantage}: bitwise manipulation is efficient.
+
+\textit{Disadvantage}: memory overhead as the bitmap must be stored in memory for efficiency.
+
+Using a \textbf{linked list}, free blocks are linked together and this information is stored in a block. Free space can be allocated in reverse order of the linked list.
+
+\textit{Advantage}: only the first pointer needs to be stored in memory, and free blocks are easy to locate.
+
+\textit{Disadvantage}: high overhead if not storing the free block list in a free block.
+
+
+\subsection{Directory Structure}
+Directories are used to group files together, and are actually files themselves.
+They contain information of the files and sub-directories in the directory.
+
+In a \textbf{linear list} implementation, each file and its starting index and length is stored in a list.
+
+\textit{Disadvantage}: linear search to find a file is inefficient, caching can offset this
+
+In a \textbf{hash table} implementation, file names are hashed to a bucket, and their starting index and length are stored in a list in that bucket.
+
+\textit{Advantage}: fast lookup.
+
+\textit{Disadvantage}: hash collisions, chained collision resolution will lead to linear search over the length of the chain.
+
+Another approach to storing file information is to use pointers to the metadata instead of storing the metadata directly.
+
+
+\subsection{Microsoft FAT File System}
+Each partition on a disk contains 5 sectors:
+\begin{enumerate}
+    \item{\textbf{boot block}}
+    \keyitem*{FAT}{stores partition details}
+    \keyitem*{duplicate FAT}{backup in case of FAT corruption}
+    \keyitem*{root directory}{stores all file and directory information (FAT16 only)}
+    \keyitem*{data blocks}{stores directory structure, file info and file data}
+\end{enumerate}
+
+Every entry in the FAT contains one of the following:
+\begin{enumerate}
+    \item block number of the next block
+    \item \code{EOF} code (e.g. \code{NULL} pointer)
+    \item \code{FREE} code (unused block)
+    \item \code{BAD} code (unusuable block, e.g. disk error)
+\end{enumerate}
+
+For FAT16, there are up to $2^{16}$ blocks and each of the $2^{16}$ FAT entries is $16$ bits.
+
+For FAT32, there are up to $2^{32}$ blocks and each of the $2^{32}$ FAT entries is $32$ bits.
+
+\begin{defn}{directory entries}
+    The root directory has its own sector in the partition, and other directories are stored in the data blocks of the partition.
+
+    Each file or subdirectory is stored as a \textbf{directory entry} and consists of:
+    \begin{enumerate}
+        \item file name, 8 bytes
+        \item file extension, 3 bytes
+        \item file attributes, 1 byte
+        \item reserved bytes, 10 bytes
+        \item creation date and time, 4 bytes
+        \item first disk block number, 2 bytes
+        \item file size in bytes, 4 bytes
+    \end{enumerate}
+
+    \textbf{File attributes} are used to indicate whether a file is a file, directory, or special (e.g. read only, hidden, etc.).
+
+    The FAT version can be determined by the size of the first disk block number --- $2$ bytes for FAT16 and $4$ bytes for FAT32, hence the reserved space.
+\end{defn}
+
+Since the file name is limited 8 characters, in FAT32, longer file names are stored in separate directory entries. A tilde is used to denote that the file name continues into the next directory entry.
+
+\begin{defn}{reading a file in FAT}
+    Given the root directory, data blocks and FAT sectors, find the sub-directory within the root directory, and then find the directory entry for the file within the sub-directory.
+
+    Alternate between the data block and FAT table starting from the first disk block number until the \code{EOF} code is reached.
+\end{defn}
+
+
+\subsection{Extended-2 (Ext2) File System}
+Each partition is divided into the boot sector followed by multiple \textbf{block groups}.
+
+Each block group contains:
+\begin{enumerate}
+    \keyitem{superblock}{metadata for the file system, e.g. how many block groups, how many I-nodes per group, etc.}
+    \keyitem{group descriptors}{metadata on where to find the following items, and duplicates all other group descriptors for redundancy}
+    \keyitem{block bitmap}{one bit for every data block, \code{1} for allocated and \code{0} for free blocks}
+    \keyitem{I-node bitmap}{one bit for every I-node, \code{1} for allocated and \code{0} for free I-nodes}
+    \keyitem{I-node table}{one 128-bytes entry for every file and directory, contains file information}
+    \keyitem{data blocks}{contain file data and directory structure}
+\end{enumerate}
+
+\begin{defn}{I-nodes (index-nodes)}
+    Each I-node has the following structure:
+    \begin{enumerate}
+        \item mode (file type, permission bits, etc.), 2 bytes
+        \item owner information, 4 bytes
+        \item file size in bytes, 4 or 8 bytes
+        \item timestamps, 3 x 4 bytes
+        \item \textbf{data block pointers}, 15 x 4 bytes
+        \item \textbf{reference count}, 2 bytes
+    \end{enumerate}
+
+    I-nodes use the combined allocation strategy with linked indices and multi-level indexing.
+
+    The first 12 pointers of the data block pointers point to \textbf{direct blocks} of 1 KiB each storing actual data.
+
+    The 13th pointer points to a \textbf{single indirect block}, which uses single-level indexing to point to the next 256 1KiB blocks.
+
+    (256 entries as the indirect block is also 1 KiB, and each address is 4 bytes.)
+
+    The 14th pointer points to a \textbf{double indirect block}, which uses double-level indexing for a maximum of 64 MiB.
+    
+    The 15th pointer points to a \textbf{triple indirect block}, which uses triple-level indexing for a maximum of 16 GiB.
+
+    The \textbf{reference count} is used to determine when to free the I-node and its data blocks.
+\end{defn}
+
+With multiple levels of indexing, both small and huge files can be handled and accessed efficiently.
+
+\begin{defn}{directory structure}
+    Directories are stored as I-nodes, and the data blocks of the I-node point to the files and sub-directories, forming \textbf{directory entries}.
+
+    Directory entries are stored in a linked list and each has associated with it:
+    \begin{enumerate}
+        \item an I-node number for the file or sub-directory,
+        \item an offset to skip to the next directory entry,
+        \item a flag for the file type, 'F' for file and 'D' for directory,
+        \item the size of the file in bytes,
+        \item and a variable-length file name.
+    \end{enumerate}
+
+    Each directory entry is variable length due to the variable-length file names.
+
+    The final directory entry points to an I-node number of \code{0}.
+\end{defn}
+
+Creating hard links involves new directory entries pointing to the same I-node, increasing the reference count of that I-node.
+
+Creating symlinks incurs the overhead of new I-nodes and data blocks, to store the path to the file (incurring re-traversal overhead), but does not increment the reference count.
+
+\begin{defn}{reading a file in Ext2}
+    Given the I-node number for the root directory and the I-node table:
+
+    \begin{enumerate}
+        \item Find the I-node for the root directory.
+        \item Find the disk block number for the directory entries for the root directory from the I-node.
+        \item Access the disk block and find the I-node number of the sub-directory/file.
+        \item Repeat steps 2 and 3 until the I-node number of the file is found.
+        \item Access the disk blocks in the I-node to read the file data.
+    \end{enumerate}
+\end{defn}
