@@ -1,0 +1,128 @@
+\part{Memory Management}
+
+\section{Contiguous Memory Management}
+Each process occupies a contiguous memory region and the physical memory must be large enough to contain one or more processes with complete memory space.
+
+A \textbf{memory partition} is a contiguous memory region allocated to a process.
+
+\subsection{Fixed Partitioning}
+Every partition is of the same size, occupied by at most one process.
+
+\textbf{Internal fragmentation} occurs when a process does not occupy the entire partition.
+
+\begin{itemize}
+    \item[+] Easy to manage.
+    \item[+] Fast allocation as every free partition is the same size, no choosing required.
+    \item[-] Partition size must be larger than or equal to the size of the largest process, leading to internal fragmentation.
+\end{itemize}
+
+\subsection{Dynamic Partitioning}
+Free memory spaces are known as \textbf{holes}, which are filled by processes as they arrive.
+
+These holes are tracked in a \textbf{free list}, where they can be \textbf{merged} or \textbf{compacted} (moving processes to consolidate holes).
+
+\textbf{External fragmentation} is a result of the holes which are too small to be used by any process.
+
+\begin{itemize}
+    \item[+] No internal fragmentation.
+    \item[-] Slow allocation as the entire memory must be searched for a suitable hole.
+    \item[-] Overhead of maintaining information on the holes.
+    \item[-] External fragmentation.
+\end{itemize}
+
+\textbf{Allocation algorithms} are used to decide which hole to fill to allocate a partition.
+
+\begin{itemize}
+    \keyitem*{first-fit}{the first hole that is large enough}
+    \keyitem*{best-fit}{the smallest hole that is large enough}
+    \keyitem*{worst-fit}{the largest hole}
+    \keyitem*{quick-fit}{maintain multiple free lists of holes with exponentially increasing sizes}
+    \keyitem*{buddy system}{contiguous block of memory is recursively sub-divided into two halves into the smallest possible block size able to fit the process}
+\end{itemize}
+
+After a partition is allocated, the leftover space becomes a new hole.
+
+\section{Disjoint Memory Management}
+We no longer assume that processes occupy contiguous memory regions.
+
+
+\subsection{Paging}
+The \textbf{logical memory} of a process is divided into \textbf{logical pages}, which are mapped onto \textbf{physical memory} split into regions of fixed size known as \textbf{physical frames}.
+
+Logical pages and physical frames are generally fixed to the same size, and typically a power of 2.
+
+This translation of logical pages to physical frames is stored in a \textbf{page table} \textit{for each process}. Page tables are stored in physical memory.
+
+\begin{itemize}
+    \item[+] No external fragmentation as every frame can be used.
+    \item[+] Insignificant internal fragmentation as at most one page is not fully used. 
+    \item[-] Memory reference requires two memory accesses: one to the page table and one to the physical frame.
+    \item[-] Page tables can get very large.
+\end{itemize}
+
+\begin{defn}{page table translation}
+    Each logical memory address is split into two parts: the \textbf{page number} (MSBs) and the \textbf{offset} (LSBs).
+
+    Each \textbf{page table entry} (PTE) stores the physical frame number of the corresponding logical page number.
+    
+    Given a page and frame size of $2^n$ bytes and an $m$ bit logical address, the page number is the $m - n$ MSBs of the logical address, and the offset is the $n$ LSBs.
+
+    The $n$ LSBs of the physical address are the same as the offset, and the $m - n$ MSBs are the physical frame number found using the corresponding PTE.
+\end{defn}
+
+If a page table translation results in incorrect access to a physical address that is still within a frame that is mapped to the process, this error cannot be caught.
+
+Page table entries can be augmented with \textbf{access-right bits} and \textbf{valid bits}.
+
+Access-right bits (for \textit{writable}, \textit{readable}, and \textit{executable}) allow hardware to check that a process is allowed to access a page.
+
+Valid bits are set by the OS during allocation.
+Every memory access is checked in hardware to catch out-of-bounds accesses.
+
+Pages can also be shared with a \textbf{copy-on-write} mechanism, typically implemented using \textbf{reference counting}.
+
+
+\subsection{Translation Look-aside Buffers (TLBs)}
+A TLB is a hardware cache storing a small number of page table entries which can be read in under a clock cycle.
+
+On a \textbf{TLB hit}, the frame number can be retrieved directly from the TLB and used to access the physical frame without needing to access the in-memory page table (memory access is slow).
+
+On a \textbf{TLB miss}, the page table must be accessed to retrieve the frame number, after which it is stored in the TLB.
+
+As such, memory latency is lower with a TLB by bypassing the page table.
+
+However, the TLB must be filled to be effective, and hence the initial load or context switch to a process will result in many TLB misses.
+
+TLBs are flushed on a context switch to prevent incorrect translations and for memory security, which means OSes have to be aware of the TLB.
+
+
+\subsection{Segmentation}
+The logical memory of a process is contiguous, which is not always desirable.
+
+With segmentation, the logical memory is divided into \textbf{segments},
+giving each segment its own independent logical address space, permissions, lifetime, and size.
+
+Each segment has a \textbf{name} and \textbf{limit} and is mapped onto physical memory with a \textbf{base address} and \textbf{limit/size}.
+
+These base addresses and limits are stored in a \textbf{segment table} for each segment
+of a process, and a \textbf{segment ID} is used to identify each segment name.
+
+\begin{itemize}
+    \item[+] Segments can grow and shrink independently.
+    \item[+] Segments can be shared independently between processes.
+    \item[-] External fragmentation as each segment requires a variable-sized and contiguous region of physical memory.
+\end{itemize}
+
+\begin{defn}{logical address translation}
+    A logical address takes the form \code{<segment ID, offset>}.
+
+    The segment ID is used to find the corresponding segment table entry, which contains the base address and limit of the segment.
+
+    The offset is added to the base address to get the physical address, after which only valid accesses are enforced requiring $offset < limit$.
+\end{defn}
+
+Segmentation can be used with paging.
+
+Each segment can span multiple pages, and as such maintains its own page table.
+
+In addition, some machines can provide dedicated \textbf{base registers} to store the base addresses and limits of segments, eliminating the need for a TLB or any other page translation caching mechanism.
