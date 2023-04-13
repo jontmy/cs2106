@@ -55,7 +55,7 @@ This translation of logical pages to physical frames is stored in a \textbf{page
 
 \begin{itemize}
     \item[+] No external fragmentation as every frame can be used.
-    \item[+] Insignificant internal fragmentation as at most one page is not fully used. 
+    \item[+] Insignificant internal fragmentation as at most one page is not fully used.
     \item[-] Memory reference requires two memory accesses: one to the page table and one to the physical frame.
     \item[-] Page tables can get very large.
 \end{itemize}
@@ -64,7 +64,7 @@ This translation of logical pages to physical frames is stored in a \textbf{page
     Each logical memory address is split into two parts: the \textbf{page number} (MSBs) and the \textbf{offset} (LSBs).
 
     Each \textbf{page table entry} (PTE) stores the physical frame number of the corresponding logical page number.
-    
+
     Given a page and frame size of $2^n$ bytes and an $m$ bit logical address, the page number is the $m - n$ MSBs of the logical address, and the offset is the $n$ LSBs.
 
     The $n$ LSBs of the physical address are the same as the offset, and the $m - n$ MSBs are the physical frame number found using the corresponding PTE.
@@ -126,3 +126,177 @@ Segmentation can be used with paging.
 Each segment can span multiple pages, and as such maintains its own page table.
 
 In addition, some machines can provide dedicated \textbf{base registers} to store the base addresses and limits of segments, eliminating the need for a TLB or any other page translation caching mechanism.
+
+
+\section{Virtual Memory Management}
+
+\textbf{Virtual memory} allows processes to have a memory space larger than the total physical memory available.
+
+We extend the paging to store some pages on \textbf{secondary storage} such as hard disks and SSDs.
+
+To do so, we need a \textbf{resident bit} in each page table entry to denote the two possible page types:
+
+\begin{enumerate}
+    \keyitem*{memory resident}{page is in physical memory}
+    \keyitem*{non-memory resident}{page is in secondary storage}
+\end{enumerate}
+
+\begin{defn}{accessing non-memory resident pages}
+    Non-resident memory access causes a \textbf{page fault}, raising an exception in \textit{hardware}, handing control to the OS which locates and loads the page from secondary storage into memory and updates the page table.
+
+    Once the page is loaded, the same instruction is re-executed.
+\end{defn}
+
+The OS schedules virtual memory access as an I/O operation, blocking the process.
+A \textbf{DMA controller} does the actual transfer of data, leaving the CPU free.
+
+Naturally, too many page faults can cause a performance slowdown known as \textbf{thrashing} as secondary storage access is in the order of milliseconds while memory access takes nanoseconds.
+
+
+\subsection{Demand Paging}
+
+A policy known as \textbf{demand paging} only allocates a page on a page fault instead of allocating all pages at the start of the process.
+
+\begin{itemize}
+    \item[+] Fast process startup time.
+    \item[+] Small memory footprint.
+    \item[-] Sluggish performance due to many page faults.
+    \item[-] Knock-on effect of page faults, possible thrashing on other processes.
+\end{itemize}
+
+
+\subsection{Page Table Structure}
+Modern processes have huge virtual memory spaces, resulting in huge page tables possibly exceeding a single physical frame.
+
+Page tables must be contiguous in memory even if they exceed a single frame for efficient retrieval of the enumerated page table entries.
+
+\begin{defn}{direct paging}
+    All page table entries are stored in a single page table.
+
+    \begin{itemize}
+        \item Given a total of $n$ bits of physical memory and each page is $m$ bits
+              the maximum number of pages is $n \div m$.
+        \item Given a virtual address of length $L$ bits and each page is $m$ bits,
+              the page numbers will take $L - \lceil \log_{2}m \rceil$ bits for a maximum of $2^{L - \lceil \log_{2}m \rceil}$ pages.
+    \end{itemize}
+\end{defn}
+
+\begin{defn}{2-level paging}
+    The page table is split into smaller page tables, each with a \textbf{page table number}.
+
+    A single \textbf{page directory} stores the address of each of the smaller page tables.
+
+    \begin{itemize}
+        \item[+] Page tables can exceed one frame in size.
+        \item[+] Entire paging structure does not need to be contiguous in memory.
+        \item[+] Page \textit{directory} entries can be empty as the smaller page tables need not be allocated.
+        \item[-] Additional indirection increases memory access time.
+    \end{itemize}
+
+    \begin{itemize}
+        \item Given $2^P$ page table entries split across $2^M$ smaller page tables, each smaller page table contains $2^{P - M}$ page table entries.
+        \item Given $n$ smaller page tables, $\lceil \log_{2}n \rceil$ bits are required for the page table number.
+    \end{itemize}
+\end{defn}
+
+The additional latency introduced by the indirection can be mitigated by TLB hits, but TLB misses will still resuly in long \textbf{page-table walks}.
+
+\textbf{MMU caches} in hardware in CPUs can cache page \textit{directory} entries to reduce the number of memory accesses required for a page table walk.
+
+2-level paging can be extended to \textbf{heirarchical paging} with multiple levels of page tables.
+
+Each table in each level of the heirarchy is sized to fit in a frame, and are set up by the OS, but traversed by the MMU hardware.
+
+\begin{defn}{inverted page tables}
+    Regular page tables map virtual addresses to physical frames using page numbers.
+
+    Inverted page tables map each physical frame to the virtual address \textit{and} process ID that uses it, with entries in the form \code{frame number: <PID, page number>}.
+
+    \begin{itemize}
+        \item[+] Significantly less overhead as only one table is used for all processes.
+        \item[-] Slow translation of virtual adddresses as the entire table must be searched.
+    \end{itemize}
+
+    Hence, inverted page tables are only used in practice as auxiliary data structures.
+\end{defn}
+
+
+\subsection{Page Replacement Algorithms}
+During a page fault, a memory page must be \textbf{evicted} from physical memory to make room for the new page if there is none.
+
+Upon eviction, the page must be written back to secondary storage if it has been modified.
+These pages are known as \textbf{dirty pages}, in contrast to \textbf{clean pages} that have not been modified.
+
+\begin{defn}{evaluating page replacement algorithms}
+    A good page replacement algorithm should minimize the average memory access time, which is defined as follows:
+
+    $
+        T_{access} = (1 - p) \times T_{mem} + p \times T_{page\_fault}
+    $
+
+    where $p$ is the probability of a page fault, $T_{mem}$ is the time to access a memory-resident page, and $T_{page\_fault}$ is the memory access time with a page fault.
+
+    Consequently, a good page replacement algorithm should minimize the probability of a page fault.
+\end{defn}
+
+The \textbf{optimal page replacement} (OPT) algorithm replaces the page that will not be used for the longest time.
+
+It guarantees the minimum number of page faults, but requires knowledge of the future memory access pattern, which is not available in practice, and hence OPT is only used as a benchmark.
+
+\textbf{First-in first-out} (FIFO) suffers from \textbf{Belady's anomaly} where the number of page faults increases as the number of frames increases, as it does not exploit temporal locality.
+
+Another algorithm is \textbf{least recently used} (LRU) which replaces the page that has not been used for the longest time.
+
+Counter-based implementations require O(n) scans and suffer from possible overflow, while stack-based ones must allow entries to be removed from the middle, and is non-trivial to implement in hardware.
+
+The \textbf{second-chance} (CLOCK) algorithm adds a \textbf{reference bit} to each page table entry.
+
+When a page is accessed, the reference bit is set to \code{1}.
+When a page is evicted, the reference bit is checked.
+
+If it is \code{1}, the page is reinserted into the queue and the reference bit is set to \code{0}.
+If the reference bit is \code{0}, the page is evicted. This page is known as the \textbf{victim page}.
+
+This degenerates into FIFO when all reference bits are \code{1}, but works well in practice.
+
+
+\subsection{Frame Allocation}
+There are two frame allocation policies:
+\begin{enumerate}
+    \keyitem*{equal allocation}{every process is allocated the same number of frames out of all that are available}
+    \keyitem*{proportional allocation}{processes are allocated frames proportional to their memory usage}
+\end{enumerate}
+
+When choosing frames to evict, there are also two policies:
+\begin{enumerate*}
+    \keyitem*{local replacement}{victim page is selected only among pages belonging to the process
+        \begin{itemize}
+            \item[+] Stable performance as the number of allocated frames does not change.
+            \item[-] Poor performance if the process is memory-intensive and too few frames are allocated, resulting in thrashing.
+            \item[+] Thrashing, if present, is localized to the process.
+            \item[-] Thrashing consumes I/O bandwidth and still affect other processes.
+        \end{itemize}
+    }
+    \keyitem*{global replacement}{victim page is selected among \textit{all} frames
+        \begin{itemize}
+            \item[+] Processes can adjust memory usage dynamically.
+            \item[-] Processes can affect each other's performance.
+            \item[-] Thrashing can also cause other processes to thrash (\textbf{cascading thrashing}).
+        \end{itemize}
+    }
+\end{enumerate*}
+
+A \textbf{working set} is the set of pages referenced by a process across a period of time, and is relatively constant within a single phase of program execution (e.g. a function).
+
+Transitions between working sets (\textbf{transient regions}) result in many page faults until the working set stabilizes (\textbf{stable regions}).
+
+\begin{defn}{working set model}
+    $W(t, \Delta)$ is defined as the number of active pages in the window of time $t - \Delta$ to $t$.
+
+    In theory, sufficient frames for all the pages in $W(t, \Delta)$ should be allocated to a process to reduce page faults.
+
+    However, the accuracy of this depends on the size of $\Delta$.
+
+    If $\Delta$ is too small, the working set will be too small and may miss pages.
+    If $\Delta$ is too large, the working set may contain pages from a different working set.
+\end{defn}
